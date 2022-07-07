@@ -8,7 +8,7 @@ from .act_spaces import ACTION_MEANINGS
 from .lux_env import LuxEnv
 from .reward_spaces import BaseRewardSpace
 from ..utility_constants import MAX_BOARD_SIZE
-from utils.visualizer import Visualizer
+
 
 
 class PadFixedShapeEnv(gym.Wrapper):

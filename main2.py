@@ -2,8 +2,7 @@ import copy
 
 import torch
 from kaggle_environments import make
-from monobeast_lux_ai import create_env
-from models.losses import with_1_step_grad
+
 import numpy as np
 import models.conv_blocks as conv_blocks
 from from_isaiah.lux_env import LuxEnv2
