@@ -594,8 +594,8 @@ class GetNResearchPoints(Subtask):
 class vivek_mix_reward(GameResultReward):
     def __init__(self,id=None,**kwargs):
         super(GameResultReward, self).__init__(**kwargs)
-        self.rewards=[GetNResearchPoints(1,id)]#CollectNWood(),,MakeNCityTiles(2),#GetNResearchPoints(30) [CollectNWood(),CollectNTotalFuel(),MakeNCityTiles(2),SurviveNNights()]#,CollectNCoal(10) GetNResearchPoints(),CollectNWood(),CollectNCoal(),CollectNUranium(),CollectNTotalFuel(),
-        self.points=[100,1,1,3,4,10]
+        self.rewards=[GetNResearchPoints(1,id),CollectNWood(),MakeNCityTiles(2)]#CollectNWood(),,MakeNCityTiles(2),#GetNResearchPoints(30) [CollectNWood(),CollectNTotalFuel(),MakeNCityTiles(2),SurviveNNights()]#,CollectNCoal(10) GetNResearchPoints(),CollectNWood(),CollectNCoal(),CollectNUranium(),CollectNTotalFuel(),
+        self.points=[1,1,1,3,4,10]
         self.id=id
 
 

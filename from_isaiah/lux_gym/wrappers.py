@@ -118,7 +118,7 @@ class LoggingEnv(gym.Wrapper):
     def __init__(self, env: gym.Env):
         super(LoggingEnv, self).__init__(env)
         self.logs=None
-        self.track_dict={'delta':[],'value':[],'action_prob':[],'city_action_research':[],'unit_build':[],'bcity':[],'city_no_action':[],'unit_no_action':[],'move_action':[], 'unit_no_action_prob':[], 'city_no_action_prob':[]}
+        self.track_dict={'delta':[],'value':[],'action_prob':[],'city_action_research':[],'unit_build':[],'bcity':[],'city_no_action':[],'unit_no_action':[],'move_action':[], 'unit_no_action_prob':[], 'city_no_action_prob':[],'blank_space_no_act_prob': []}
 
         # self.delta=[]
         # self.value = []
@@ -161,7 +161,8 @@ class LoggingEnv(gym.Wrapper):
                 'unit_no_action': [],
                 'move_action':[],
                 'unit_no_action_prob':[],
-                        'city_no_action_prob':[]
+                'city_no_action_prob':[],
+                'blank_space_no_act_prob': []
             }
         else :self.logs=logs
 
@@ -202,6 +203,7 @@ class LoggingEnv(gym.Wrapper):
             'move_action':[np.mean(self.track_dict['move_action'])],
             'unit_no_action_prob':[np.mean(self.track_dict['unit_no_action_prob'])],
             'city_no_action_prob': [np.mean(self.track_dict['city_no_action_prob'])],
+            'blank_space_no_act_prob': [np.mean(self.track_dict['blank_space_no_act_prob'])],
 
         }
 

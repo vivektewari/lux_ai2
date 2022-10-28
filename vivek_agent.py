@@ -1,5 +1,6 @@
 
 import numpy as np
+import pandas as pd
 from torch.nn.functional import softmax,sigmoid
 from abc import ABC, abstractmethod
 from from_isaiah.lux.game import  Game
@@ -13,7 +14,7 @@ import gym
 from typing import Any, Callable, Dict, NoReturn, Optional, Tuple, Union,List
 from from_isaiah.lux_gym.reward_spaces import RewardSpec
 class abstract_agent(ABC):
-    def __init__(self,action_space=None,player=0,board_dim=(12,12),model_updater=None,environment=None):
+    def __init__(self,action_space=None,player=0,board_dim=(12,12),model_updater=None,environment=None,track_loc=None):
 
         self.id=player
         self.board_dim=board_dim
@@ -22,6 +23,7 @@ class abstract_agent(ABC):
         self.environment=environment
         self.act_space = environment.action_space
         self.obs_space = environment.obs_space
+        self.track_loc=track_loc
 
 
         pass
@@ -30,6 +32,8 @@ class abstract_agent(ABC):
     def add_model(self,model,path=None):
          pass
 
+    def tracking(self, output,key):
+        return None
     @abstractmethod
     def see(self,obs)->np.ndarray:
 
@@ -51,6 +55,7 @@ class abstract_agent(ABC):
         :return: dict space
         """
         pass
+
 
 
 
@@ -130,6 +135,11 @@ class agent_v1(abstract_agent):
         baseline=model_output_[-1] #torch.sigmoid(
 
         model_output = model_output_[:-1].reshape((12, 12, 40))
+        #for tracking:
+        model_output_1=torch.softmax(model_output[:,:,0:19].detach(),dim=2),torch.softmax(model_output[:,:,19:36].detach(),dim=2) \
+                                    ,torch.softmax(model_output[:,:,36:40].detach(),dim=2)
+        noaction_probs=torch.cat((model_output_1[0][:,:,0].reshape((12, 12, 1))
+                                  ,model_output_1[1][:,:,0].reshape((12, 12, 1)),model_output_1[2][:,:,0].reshape((12, 12, 1))),dim=2)
 
         selected_action=-1
         action=[]
@@ -153,6 +163,7 @@ class agent_v1(abstract_agent):
 
                 id=ct.cityid
                 ref= 1
+                noaction_probs[key][2]=torch.nan
             else:
                 #continue #TODO
                 unit=pos_to_unit_dict[key]
@@ -162,9 +173,11 @@ class agent_v1(abstract_agent):
                 if unit.is_worker():
                     action_set =model_output[key[0],key[1],:19]
                     ref=2
+                    noaction_probs[key][0] = torch.nan
                 else:
                     action_set = model_output[key[0],key[1],19:36]
                     ref=3
+                    noaction_probs[key][1] = torch.nan
 
 
             if sum(mask)==1:continue
@@ -181,7 +194,7 @@ class agent_v1(abstract_agent):
             choices=torch.tensor([i for i in range(len(relevant_action_set))])[mask==1]
 
             distribution=softmax(relevant_action_set[choices])
-            if self.use_learning and np.random.random()<10/self.game_played:selected_action=np.random.choice(choices)#torch.argmax(relevant_action_set)#,p=np.array(distribution)
+            if self.use_learning and np.random.random()<50/self.game_played:selected_action=np.random.choice(choices)#torch.argmax(relevant_action_set)#,p=np.array(distribution)
             else:selected_action=np.random.choice(choices,p=np.array(distribution))
             #if selected_action==3 and ref==1:print(relevant_action_set[choices])
             action.append(torch.tensor([key[0], key[1],ref, selected_action]))
@@ -204,7 +217,7 @@ class agent_v1(abstract_agent):
 
             logits*=probs
 
-
+        self.record_value_for_log({'blank_space_no_act_prob':torch.nanmean(noaction_probs)})
 
         if selected_action ==-1:
             logits=torch.tensor(1.0,dtype=torch.float32,requires_grad=True)
@@ -224,7 +237,7 @@ class agent_v1(abstract_agent):
         return dict
 
 class agent_v2(agent_v1):
-    def __init__(self, action_space=None, player=0, board_dim=(12, 12), model_updater=None, environment=None,brain=None,use_learning=True):
+    def __init__(self, action_space=None, player=0, board_dim=(12, 12), model_updater=None, environment=None,brain=None,use_learning=True,track_loc=None):
 
         self.id = player
         self.board_dim = board_dim
@@ -237,6 +250,7 @@ class agent_v2(agent_v1):
         self.brain=brain
         self.use_learning=use_learning
         self.game_played=1
+        self.track_loc=track_loc
 
 
         pass
@@ -256,6 +270,54 @@ class agent_v2(agent_v1):
 
         return torch.tensor(obs,dtype=torch.float32),reward[self.id],done
 
+    def tracking(self, output,key):
+        """
+        save the snapshot of different part of game for reassceing it later
+        """
+
+
+
+        if key =='see':
+            _, c, l, b = output.shape
+            dump=pd.DataFrame(columns=[i for i in range(l)],index=[i for i in range(b)])
+#['board_size', 'cart', 'cart_COUNT', 'cart_cargo_coal', 'cart_cargo_full', 'cart_cargo_uranium',
+# 'cart_cargo_wood', 'cart_cooldown', 'city_tile', 'city_tile_cooldown', 'city_tile_cost', 'city_tile_fuel',
+# 'coal', 'day_night_cycle', 'dist_from_center_x', 'dist_from_center_y', 'night', 'phase', 'research_points',
+# 'researched_coal', 'researched_uranium', 'road_level', 'turn', 'uranium', 'wood', 'worker', 'worker_COUNT',
+# 'worker_cargo_coal', 'worker_cargo_full', 'worker_cargo_uranium', 'worker_cargo_wood', 'worker_cooldown']
+            if self.game_step == 1:
+                self.writer = pd.ExcelWriter(self.track_loc+'see.xlsx')
+                map=['board_size', 'cart', 'cart_COUNT', 'cart_cargo_coal', 'cart_cargo_full', 'cart_cargo_uranium',
+                'cart_cargo_wood', 'cart_cooldown', 'city_tile', 'city_tile_cooldown', 'city_tile_cost', 'city_tile_fuel',
+                'coal', 'day_night_cycle', 'dist_from_center_x', 'dist_from_center_y', 'night', 'phase', 'research_points',
+                'researched_coal', 'researched_uranium', 'road_level', 'turn', 'uranium', 'wood', 'worker', 'worker_COUNT',
+                'worker_cargo_coal', 'worker_cargo_full', 'worker_cargo_uranium', 'worker_cargo_wood', 'worker_cooldown']
+                self.new_map=[]
+                for i in range(len(map)):
+                    self.new_map.append(map[i])
+                    if map[i] in ['cart', 'cart_COUNT', 'cart_cargo_coal', 'cart_cargo_full', 'cart_cargo_uranium',
+                'cart_cargo_wood', 'cart_cooldown', 'city_tile', 'city_tile_cooldown', 'city_tile_cost', 'city_tile_fuel',
+                'research_points','researched_coal', 'researched_uranium','worker', 'worker_COUNT',
+                'worker_cargo_coal', 'worker_cargo_full', 'worker_cargo_uranium', 'worker_cargo_wood', 'worker_cooldown']:
+                        self.new_map.append(map[i]+'1')
+
+
+            next_entry='board_size'
+            for i in range(l):
+                for j in range(b):
+                    output_slice=list(output[:, :, i, j].flatten().numpy())
+
+                    dump[i][j]={}
+                    for k in range(c):
+                        if output_slice[k]>0:dump[i][j][self.new_map[k]]=output_slice[k]
+
+            #dump.to_csv(self.track_loc+str(self.game_step)+'_see.csv')
+
+
+
+            dump.to_excel(self.writer, sheet_name=str(self.game_step))
+            self.writer.save()
+
 
     def __call__(self,obs,configuration):#obs from lux ai engine
         """
@@ -271,6 +333,7 @@ class agent_v2(agent_v1):
         self.extract_update_game(obs)
 
         eye_output,reward,done=self.see()
+        if self.track_loc is not None:self.tracking(eye_output,key='see')
         self.stopwatch.stop().start("model running")
         model_output=self.brain.model(eye_output)
         self.stopwatch.stop().start("model output processing")
@@ -286,13 +349,12 @@ class agent_v2(agent_v1):
             delta = dict['baseline'].detach() + reward - value
 
             self.record_value_for_log(
-                {'value': self.brain.v_t.detach(), 'delta': delta, 'action_prob': self.brain.action_prob.detach() \
-                 })
+                {'value': self.brain.v_t.detach(), 'delta': delta, 'action_prob': self.brain.action_prob.detach() })
             if self.use_learning:self.brain.learn(reward=reward, v_t_plus_one=torch.tensor(0.0))
             self.game_played+=1
         else:
             value = self.brain.v_t.detach()
-            delta =dict['baseline'].detach()+reward-value
+            delta =self.brain.discounting*dict['baseline'].detach()+reward-value
             #recording value for logs
             #print(self.brain.action_prob.detach() )
             self.record_value_for_log({'value':self.brain.v_t.detach(),'delta':delta,'action_prob':self.brain.action_prob.detach() \

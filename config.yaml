@@ -19,7 +19,7 @@ group: na
 act_space: BasicActionSpace
 obs_space: FixedShapeContinuousObsV2
 obs_space_kwargs: {}
-reward_space: vivek_mix_reward #GetNResearchPoints #CityTileReward #GameResultReward #
+reward_space: vivek_mix_reward  #vivek_mix_reward #GetNResearchPoints #CityTileReward #GameResultReward #
 reward_space_kwargs: {}
 #for#internal calculation |not used anywhere
 unit_action_count: 19 #1|0 is no action +4|moves +1|pilage+1|build_city+ 3*4|full transfer

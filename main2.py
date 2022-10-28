@@ -32,15 +32,15 @@ model_ = conv_blocks.__dict__[config.nn_model_name]
 
 
 #conv_blocks.count_parameters(model1)
-brain1=Brain_v2( discounting=0.9,lambda_w=0.4,lambda_t=0.4,alpha_w=0.002,alpha_t=0.0012,model=None)
-brain2=Brain_v2( discounting=0.9,lambda_w=0.4,lambda_t=0.4,alpha_w=0.002,alpha_t=0.0012,model=None)
+brain1=Brain_v2( discounting=0.9,lambda_w=0.4,lambda_t=0.4,alpha_w=0.1,alpha_t=0.01,model=None)
+brain2=Brain_v2( discounting=0.9,lambda_w=0.4,lambda_t=0.4,alpha_w=0.1,alpha_t=0.01,model=None)
 temp=config.savedir
 config.savedir=None
 if True:
 
-    brain1.load_model(model_constructor=model_,model_params=config.model_params,dir=config.savedir,identifier=1,eps=150)
+    brain1.load_model(model_constructor=model_,model_params=config.model_params,dir=config.savedir,identifier=1,eps=350)
     brain2.load_model(model_constructor=model_, model_params=config.model_params,
-                      dir=config.savedir,identifier=2,eps=150)
+                      dir=config.savedir,identifier=2,eps=350)
 config.savedir=temp
 # configuration=make("lux_ai_2021", configuration={"seed": 562124210, "loglevel": 2, "annotations": True,"width":12, "height":12}, debug=True)
 win_count_0=0
@@ -62,8 +62,8 @@ env = LuxEnv(obs_space=obs_space(), act_space=act_space(), reward_space=reward_s
 env.observation_space = env.obs_space.wrap_env(env=env.observation_space)
 env = wrappers.LoggingEnv(wrappers.RewardSpaceWrapper(env, reward_space))
 
-
-agent1 = agent_v2(player=0, action_space=act_space(default_board_dims=(12, 12)),environment=copy.deepcopy(env),brain=brain1,use_learning=True)
+track_loc='/home/pooja/PycharmProjects/lux_ai/outputs/tracking/see/'
+agent1 = agent_v2(player=0, action_space=act_space(default_board_dims=(12, 12)),environment=copy.deepcopy(env),brain=brain1,use_learning=True,track_loc=None)
 
 agent2 = agent_v2(player=1, action_space=act_space(default_board_dims=(12, 12)),environment=copy.deepcopy(env),brain=brain2,use_learning=True)
 
@@ -73,7 +73,7 @@ size = 1
 
 logged,visulizer=[None,None],VisdomLinePlotter()
 for eps in range(episodes):
-    configuration = {"seed": np.random.randint(1,1000000), "loglevel": 1, "annotations": True, "width": 12, "height": 12}
+    configuration = {"seed": 12345, "loglevel": 1, "annotations": True, "width": 12, "height": 12}#city_fuel_normalized
     for ag in agents:
         ag.brain.reset()
         ag.reset_environment(copy.deepcopy(env))

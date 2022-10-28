@@ -111,8 +111,8 @@ class FeatureExtractor(nn.Module):
             if i < (len(self.conv_blocks) - 1):
                 x = self.activation_l(x)
                 #print(torch.std(x),torch.min(x),torch.max(x))
-                if torch.std(x)>0.0001:#fix: bad fix as valueue wer becoming nan
-                    x = (x - torch.mean(x)) / torch.std(x)
+                # if torch.std(x)>0.0001:#fix: bad fix as valueue wer becoming nan
+                #     x = (x - torch.mean(x)) / torch.std(x)
 
 
             if self.mode_train == 1:

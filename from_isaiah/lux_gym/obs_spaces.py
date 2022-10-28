@@ -250,7 +250,7 @@ class FixedShapeContinuousObsV2(FixedShapeObs):
     ) -> gym.spaces.Dict:
         x = board_dims[0]
         y = board_dims[1]
-        return gym.spaces.Dict({
+        t= gym.spaces.Dict({
             # Player specific observations
             # none, worker
             "worker": gym.spaces.MultiBinary((1, P, x, y)),
@@ -315,6 +315,7 @@ class FixedShapeContinuousObsV2(FixedShapeObs):
             # 12, 16, 24, or 32
             "board_size": gym.spaces.MultiDiscrete(np.zeros((1, 1)) + len(MAP_SIZES)),
         })
+        return t
 
     def wrap_env(self, env) -> gym.Wrapper:
         return _FixedShapeContinuousObsWrapperV2(env)
@@ -359,7 +360,9 @@ class _FixedShapeContinuousObsWrapperV2(gym.Wrapper):
             p_id = player.team
             for unit in player.units:
                 x, y = unit.pos.x, unit.pos.y
+
                 if unit.is_worker():
+
                     obs["worker"][0, p_id, x, y] = 1
                     obs["worker_COUNT"][0, p_id, x, y] += 1
                     obs["worker_cooldown"][0, p_id, x, y] = unit.cooldown / w_cooldown
