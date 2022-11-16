@@ -430,7 +430,7 @@ class CollectNUranium(Subtask):
 class MakeNCityTiles(Subtask):
     def __init__(self, n_city_tiles: int = 2,id=None, **kwargs):
         super(MakeNCityTiles, self).__init__(**kwargs)
-        assert n_city_tiles > 1, "Players start with 1 city tile already"
+        #assert n_city_tiles > 1, "Players start with 1 city tile already"
         self.n_city_tiles = n_city_tiles
         self.id=id
 
@@ -461,7 +461,7 @@ class CollectNTotalFuel(Subtask):
     def completed_task(self, game_state: Game) -> np.ndarray:
         reward=count_total_fuel(game_state) >= self.n_total_fuel
         if reward[self.id]==1:
-            self.n_total_fuel+=1
+            self.n_total_fuel+=100
         return reward
 class CollectNight_sufficient(Subtask):
     def __init__(self, n_total_fuel: int = GAME_CONSTANTS["PARAMETERS"]["LIGHT_UPKEEP"]["CITY"] *
@@ -476,8 +476,9 @@ class CollectNight_sufficient(Subtask):
         reward=np.array([0,0])
         if not is_nyt: # have to check id nyt resource colection is possible
             for city in game_state.players[self.id].cities.values():
-                short=min(0,(city.fuel -city.light_upkeep*10))
-                required+=short/2
+                short=city.fuel -city.light_upkeep*10
+                if short>0: short=-short
+                required+=short#/2
         reward[self.id]=required
         return reward
 
@@ -567,9 +568,11 @@ class GetNUnits(Subtask):
         self.n_units= n_units
         self.id=id
     def completed_task(self, game_state: Game) -> np.ndarray:
-        reward= np.array([len(player.units) for player in game_state.players]) >= self.n_units
-        if reward[self.id]==1:
-            self.n_units+=1
+        reward_= np.array([len(player.units) for player in game_state.players]) - self.n_units
+        if reward_[self.id]>0:reward=reward_[self.id]
+        else :reward=0
+
+        self.n_units+=reward
 
         return reward
 
@@ -594,7 +597,7 @@ class GetNResearchPoints(Subtask):
 class vivek_mix_reward(GameResultReward):
     def __init__(self,id=None,**kwargs):
         super(GameResultReward, self).__init__(**kwargs)
-        self.rewards=[GetNResearchPoints(1,id),CollectNWood(),MakeNCityTiles(2)]#CollectNWood(),,MakeNCityTiles(2),#GetNResearchPoints(30) [CollectNWood(),CollectNTotalFuel(),MakeNCityTiles(2),SurviveNNights()]#,CollectNCoal(10) GetNResearchPoints(),CollectNWood(),CollectNCoal(),CollectNUranium(),CollectNTotalFuel(),
+        self.rewards=[GetNResearchPoints(1,id),MakeNCityTiles(2,id)]#CollectNWood(),,MakeNCityTiles(2),#GetNResearchPoints(30) [CollectNWood(),CollectNTotalFuel(),MakeNCityTiles(2),SurviveNNights()]#,CollectNCoal(10) GetNResearchPoints(),CollectNWood(),CollectNCoal(),CollectNUranium(),CollectNTotalFuel(),
         self.points=[1,1,1,3,4,10]
         self.id=id
 
@@ -607,8 +610,8 @@ class vivek_mix_reward(GameResultReward):
         # if sum_rewards[0]>0:
         #     s=0
         #print(sum_rewards)
-        return  sum_rewards/10
+        return  sum_rewards/100
     def add_id(self,id):
-        self.rewards =[deaths_penality(),CollectNCoal(20,id=id),GetNResearchPoints(1,id=id)]  #GetNUnits(2,id=id),MakeNCityTiles(2,id=id),CollectNight_sufficient(id=id), CollectNWood(),,MakeNCityTiles(2),#GetNResearchPoints(30) [CollectNWood(),CollectNTotalFuel(),MakeNCityTiles(2),SurviveNNights()]#,CollectNCoal(10) GetNResearchPoints(),CollectNWood(),CollectNCoal(),CollectNUranium(),CollectNTotalFuel(),
-        self.points = [1,1, 1, 1, 1, 2]
+        self.rewards=[GetNResearchPoints(1,id),MakeNCityTiles(2,id),GetNUnits(2,id=id),CollectNight_sufficient(id=id),CollectNTotalFuel(10,id=id)] #GetNUnits(2,id=id),MakeNCityTiles(2,id=id),CollectNight_sufficient(id=id), CollectNWood(),,MakeNCityTiles(2),#GetNResearchPoints(30) [CollectNWood(),CollectNTotalFuel(),MakeNCityTiles(2),SurviveNNights()]#,CollectNCoal(10) GetNResearchPoints(),CollectNWood(),CollectNCoal(),CollectNUranium(),CollectNTotalFuel(),
+        self.points = [0,200, 200,0, 0, 0]
 

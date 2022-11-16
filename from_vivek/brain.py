@@ -36,6 +36,7 @@ class Brain_v1(Brain):
     def note(self,v_t,action_prob):
         self.v_t=v_t
         self.action_prob=action_prob
+
     def learn(self,reward,v_t_plus_one) ->None:
         delta = (reward + self.discounting * v_t_plus_one - self.v_t.detach()).detach()
         # self.opt.zero_grad()
@@ -72,7 +73,10 @@ class Brain_v1(Brain):
 class Brain_v2(Brain_v1):#different model for actor and critic
 
     def learn(self,reward,v_t_plus_one) ->None:
-        delta = (reward + self.discounting * v_t_plus_one - self.v_t.detach()).detach()
+
+        #delta = (max(reward,0) + self.discounting * v_t_plus_one - 0*self.v_t.detach()).detach()
+        delta = reward #(reward+ self.discounting * v_t_plus_one - self.v_t.detach()).detach()#todo: correct it
+        #if self.action_prob.detach() < 0.000000000000001 : return delta#or reward == 0
         # self.opt.zero_grad()
         eval_gradients_base = {}
 
@@ -84,6 +88,7 @@ class Brain_v2(Brain_v1):#different model for actor and critic
         eval_gradients_policy = {}
         # eval_gradients_policy = ag.grad(torch.log(action_prob), self.model.parameters())
 
+
         s = torch.log(self.action_prob)
         s.backward()
         for idx, p in enumerate(self.models[1].parameters()):
@@ -94,23 +99,29 @@ class Brain_v2(Brain_v1):#different model for actor and critic
 
         with torch.no_grad():
             for idx, p in enumerate(self.models[0].parameters()):
-                self.z_w[idx] = self.discounting * self.lambda_w * self.z_w[idx] + eval_gradients_base[idx]
+                self.z_w[idx] =0*self.discounting * self.lambda_w * self.z_w[idx] +torch.clip(eval_gradients_base[idx],-1,1) #todo chage
                 # p.copy_(self.alpha_w*delta* z_w[idx]+self.alpha_t*delta* z_t[idx])
                 update = p.data + self.alpha_w * delta * self.z_w[idx]
                 if not (torch.isinf(update).any() and torch.isnan(update).any()):
                     p.copy_(update)
             #delta = reward
+            # if sum(eval_gradients_policy[6]) >0.000000001 and reward>0:
+            #     d = 0
+            oldq_data=[]
             for idx, q in enumerate(self.models[1].parameters()):
-                self.z_t[idx] = self.discounting * self.lambda_t * self.z_t[idx] + self.I * eval_gradients_policy[idx]
+                self.z_t[idx] =0*self.discounting * self.lambda_t * self.z_t[idx] +  self.I * torch.clip(eval_gradients_policy[idx],-0.1,0.1)
                 # p.copy_(self.alpha_w*delta* z_w[idx]+self.alpha_t*delta* z_t[idx])
                 update=q.data  +self.alpha_t * delta * self.z_t[idx]
+                oldq_data.append(copy.deepcopy(q.data))
                 if not (torch.isinf(update).any() or torch.isnan(update).any()):
                     q.copy_(update)
+
                 else :
                     print(('nan faced in paramaeter update {}'.format(idx)))
 
         #print(torch.max(eval_gradients_policy[1]),torch.max(eval_gradients_base[1]))
-        self.I = self.discounting * self.I
+
+        self.I = self.discounting * self.I# keep it one else gradient will become too small for later steps
         return delta
     def reset(self) -> None:
         self.z_w,self.z_t,self.I={},{},1.0

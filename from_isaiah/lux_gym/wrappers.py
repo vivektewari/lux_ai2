@@ -118,13 +118,13 @@ class LoggingEnv(gym.Wrapper):
     def __init__(self, env: gym.Env):
         super(LoggingEnv, self).__init__(env)
         self.logs=None
-        self.track_dict={'delta':[],'value':[],'action_prob':[],'city_action_research':[],'unit_build':[],'bcity':[],'city_no_action':[],'unit_no_action':[],'move_action':[], 'unit_no_action_prob':[], 'city_no_action_prob':[],'blank_space_no_act_prob': []}
+        self.track_dict={'delta':[],'value':[],'action_prob':[],'city_action_research':[],'unit_build':[],'bcity':[],'city_no_action':[],'unit_no_action':[],'move_action':[], 'unit_no_action_prob':[], 'city_no_action_prob':[],'blank_space_no_act_prob': [],'max_model_output':[]}
 
         # self.delta=[]
         # self.value = []
         # self.action_prob = []
 
-        self.max_size=50
+        self.max_size=20
         self.vals_peak = {}
         self.reward_sums = [0., 0.]
         self.actions_distributions = {
@@ -162,7 +162,8 @@ class LoggingEnv(gym.Wrapper):
                 'move_action':[],
                 'unit_no_action_prob':[],
                 'city_no_action_prob':[],
-                'blank_space_no_act_prob': []
+                'blank_space_no_act_prob': [],
+                'max_model_output':[]
             }
         else :self.logs=logs
 
@@ -204,6 +205,7 @@ class LoggingEnv(gym.Wrapper):
             'unit_no_action_prob':[np.mean(self.track_dict['unit_no_action_prob'])],
             'city_no_action_prob': [np.mean(self.track_dict['city_no_action_prob'])],
             'blank_space_no_act_prob': [np.mean(self.track_dict['blank_space_no_act_prob'])],
+            'max_model_output':[np.mean(self.track_dict['max_model_output'])],
 
         }
 

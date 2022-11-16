@@ -36,7 +36,7 @@ for u in ["worker", "cart"]:
     for r in RESOURCES:
         for d in DIRECTIONS:
             ACTION_MEANINGS[u].append(f"TRANSFER_{r}_{d}")
-ACTION_MEANINGS["worker"].extend(["PILLAGE", "BUILD_CITY"])
+ACTION_MEANINGS["worker"].extend(["PILLAGE", "BUILD_CITY"]) # this should have been off
 ACTION_MEANINGS_TO_IDX = {
     actor: {
         action: idx for idx, action in enumerate(actions)
@@ -415,6 +415,7 @@ def get_unit_action(unit: Unit, action_idx: int, pos_to_unit_dict: Dict[Tuple, O
         # noinspection PyArgumentList
         return ACTION_MEANING_TO_FUNC[unit_type][action](unit, pos_to_unit_dict)
     else:
+        #print(unit_type,action_idx,action,ACTION_MEANING_TO_FUNC[unit_type][action](unit))
         return ACTION_MEANING_TO_FUNC[unit_type][action](unit)
 
 

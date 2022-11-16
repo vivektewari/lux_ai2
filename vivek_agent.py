@@ -1,4 +1,4 @@
-
+from from_lux.annotate import *
 import numpy as np
 import pandas as pd
 from torch.nn.functional import softmax,sigmoid
@@ -131,8 +131,8 @@ class agent_v1(abstract_agent):
     def action_selection(self,game:Game,model_output_:dict)->Dict[str,torch.tensor]:# dict witk key:policy logits ->shape x,y,type,logit |, action->x,y,type,action
 
         masks,pos_to_city_tile_dict,pos_to_unit_dict=self.preprocess(game)
-
-        baseline=model_output_[-1] #torch.sigmoid(
+        choices=None
+        baseline=model_output_[-1]#torch.sigmoid(
 
         model_output = model_output_[:-1].reshape((12, 12, 40))
         #for tracking:
@@ -193,9 +193,14 @@ class agent_v1(abstract_agent):
                 remaining_prob=torch.exp(relevant_action_set[mask==1]/scalar).sum()
             choices=torch.tensor([i for i in range(len(relevant_action_set))])[mask==1]
 
-            distribution=softmax(relevant_action_set[choices])
-            if self.use_learning and np.random.random()<50/self.game_played:selected_action=np.random.choice(choices)#torch.argmax(relevant_action_set)#,p=np.array(distribution)
+            distribution=softmax(relevant_action_set[choices],dim=0)
+            if self.use_learning and np.random.random()<-0.5/self.game_played:selected_action=np.random.choice(choices)#torch.argmax(relevant_action_set)#,p=np.array(distribution)
             else:selected_action=np.random.choice(choices,p=np.array(distribution))
+            if self.game_played<0 and True: #assiting to build city and worker in inita games
+                if ref==1 and 1 in choices:selected_action=1
+                if ref == 2 and 2 in choices: selected_action = 2
+
+
             #if selected_action==3 and ref==1:print(relevant_action_set[choices])
             action.append(torch.tensor([key[0], key[1],ref, selected_action]))
             if ref==1:
@@ -211,7 +216,8 @@ class agent_v1(abstract_agent):
             if act_str is not None:
                 action_str.append(act_str)
 
-            probs = torch.exp(action_set[selected_action]/scalar)/(remaining_prob)
+            #probs = torch.exp(action_set[selected_action]/scalar)/(remaining_prob)
+            probs = torch.softmax(action_set,dim=0 )[selected_action]
             if torch.isnan(probs) or torch.isinf(probs):
                 check=2
 
@@ -227,6 +233,8 @@ class agent_v1(abstract_agent):
         if len(dict['action_for_env'])>0:
             if dict['action_for_env'][0].find('bw')>=0:
                 d=0
+
+        #dict['action_for_env'].append(sidetext('choices:{}'.format(choices)))
         return dict
 
     def __call__(self,vector:torch.tensor,obs,game:Game)->Dict[str,torch.tensor]:#policy_logits,baseline,action:12,12,3,1
@@ -261,7 +269,7 @@ class agent_v2(agent_v1):
 
         else:
             self.environment.update_game(observation)
-        self.game_step+=1
+            self.game_step+=1
         #print(self.game_step)
     def see(self):
         #if self.game_step!=1:
@@ -270,53 +278,7 @@ class agent_v2(agent_v1):
 
         return torch.tensor(obs,dtype=torch.float32),reward[self.id],done
 
-    def tracking(self, output,key):
-        """
-        save the snapshot of different part of game for reassceing it later
-        """
 
-
-
-        if key =='see':
-            _, c, l, b = output.shape
-            dump=pd.DataFrame(columns=[i for i in range(l)],index=[i for i in range(b)])
-#['board_size', 'cart', 'cart_COUNT', 'cart_cargo_coal', 'cart_cargo_full', 'cart_cargo_uranium',
-# 'cart_cargo_wood', 'cart_cooldown', 'city_tile', 'city_tile_cooldown', 'city_tile_cost', 'city_tile_fuel',
-# 'coal', 'day_night_cycle', 'dist_from_center_x', 'dist_from_center_y', 'night', 'phase', 'research_points',
-# 'researched_coal', 'researched_uranium', 'road_level', 'turn', 'uranium', 'wood', 'worker', 'worker_COUNT',
-# 'worker_cargo_coal', 'worker_cargo_full', 'worker_cargo_uranium', 'worker_cargo_wood', 'worker_cooldown']
-            if self.game_step == 1:
-                self.writer = pd.ExcelWriter(self.track_loc+'see.xlsx')
-                map=['board_size', 'cart', 'cart_COUNT', 'cart_cargo_coal', 'cart_cargo_full', 'cart_cargo_uranium',
-                'cart_cargo_wood', 'cart_cooldown', 'city_tile', 'city_tile_cooldown', 'city_tile_cost', 'city_tile_fuel',
-                'coal', 'day_night_cycle', 'dist_from_center_x', 'dist_from_center_y', 'night', 'phase', 'research_points',
-                'researched_coal', 'researched_uranium', 'road_level', 'turn', 'uranium', 'wood', 'worker', 'worker_COUNT',
-                'worker_cargo_coal', 'worker_cargo_full', 'worker_cargo_uranium', 'worker_cargo_wood', 'worker_cooldown']
-                self.new_map=[]
-                for i in range(len(map)):
-                    self.new_map.append(map[i])
-                    if map[i] in ['cart', 'cart_COUNT', 'cart_cargo_coal', 'cart_cargo_full', 'cart_cargo_uranium',
-                'cart_cargo_wood', 'cart_cooldown', 'city_tile', 'city_tile_cooldown', 'city_tile_cost', 'city_tile_fuel',
-                'research_points','researched_coal', 'researched_uranium','worker', 'worker_COUNT',
-                'worker_cargo_coal', 'worker_cargo_full', 'worker_cargo_uranium', 'worker_cargo_wood', 'worker_cooldown']:
-                        self.new_map.append(map[i]+'1')
-
-
-            next_entry='board_size'
-            for i in range(l):
-                for j in range(b):
-                    output_slice=list(output[:, :, i, j].flatten().numpy())
-
-                    dump[i][j]={}
-                    for k in range(c):
-                        if output_slice[k]>0:dump[i][j][self.new_map[k]]=output_slice[k]
-
-            #dump.to_csv(self.track_loc+str(self.game_step)+'_see.csv')
-
-
-
-            dump.to_excel(self.writer, sheet_name=str(self.game_step))
-            self.writer.save()
 
 
     def __call__(self,obs,configuration):#obs from lux ai engine
@@ -333,14 +295,14 @@ class agent_v2(agent_v1):
         self.extract_update_game(obs)
 
         eye_output,reward,done=self.see()
-        if self.track_loc is not None:self.tracking(eye_output,key='see')
+        if self.track_loc is not None:self.tracking(eye_output,key='see1')
         self.stopwatch.stop().start("model running")
         model_output=self.brain.model(eye_output)
         self.stopwatch.stop().start("model output processing")
         dict = self.action_selection(self.environment.game_state, model_output)
 
 
-        if self.game_step == 1:
+        if self.game_step == 0:
             self.brain.reset()
             self.brain.note(v_t=dict['baseline'],action_prob=dict['policy_logits'])
             self.last_notes=dict['actions'],eye_output,model_output[:-1].reshape(12,12,40),dict['policy_logits'],len(dict['actions']),dict['action_for_env']
@@ -354,47 +316,39 @@ class agent_v2(agent_v1):
             self.game_played+=1
         else:
             value = self.brain.v_t.detach()
+            #print(value)
             delta =self.brain.discounting*dict['baseline'].detach()+reward-value
             #recording value for logs
             #print(self.brain.action_prob.detach() )
             self.record_value_for_log({'value':self.brain.v_t.detach(),'delta':delta,'action_prob':self.brain.action_prob.detach() \
-                                       })
+                                       ,'max_model_output':torch.max(torch.abs_(model_output.detach()))})
 
-            # self.environment.value.append(self.brain.v_t.detach())
-            # self.environment.action_prob.append(self.brain.action_prob.detach())
-            # self.environment.delta.append(delta)
+            if self.game_step in [190] and self.id == 1:
+                h = 0
             if self.use_learning:self.brain.learn(reward=reward,v_t_plus_one=dict['baseline'].detach())
             model_output = self.brain.model(eye_output)
             dict = self.action_selection(self.environment.game_state, model_output)
             self.brain.note(v_t=dict['baseline'],action_prob=dict['policy_logits'])
-            # if self.id==0:
-            #     print(self.last_notes[5])
-            #     print(self.last_notes[0])
-            #
-            #print(self.last_notes[0][2], self.last_notes[0][3])
-            #if self.id==0:print(self.environment.game_state.players[0].research_points)
-            if False and self.last_notes[4]==1 and self.last_notes[5]!=[] and self.id==0:
-                #self.last_notes[0]=torch.tensor([self.last_notes[0]])
-                if self.last_notes[0][0][2]==1:
-                    action_s=self.last_notes[0][0][3]+36
-                    if self.last_notes[0][0][3]==3:
 
-
-                    # elif self.last_notes[0][2]==3:action_s=self.last_notes[0][3]+19
-                    # else :action_s=self.last_notes[0][3]
-                        ref = self.last_notes[0][0][0], self.last_notes[0][0][1], action_s
-                        c=self.brain.model(self.last_notes[1])[:-1].reshape((12, 12, 40))[ref]-self.last_notes[2][ref]
-                        #d=self.brain.model(self.last_notes[1])[-1]-value
-                        print(reward,self.last_notes[5])
-                        print("plogits_change {}".format(c>0))#*delta
-                    #print("base_valuation_change {}".format(d ))
-
+            if self.track_loc is not None:self.tracking([[i for i in range(19)]+[36,37,38,39],self.last_notes[2], \
+                    self.brain.model(self.last_notes[1])[:-1].reshape(12, 12, 40),reward],'act_tracking','sel_act_'+str(self.game_played-1))
+            if self.track_loc is not None:self.tracking([[0,2],self.last_notes[2], \
+                    self.brain.model(self.last_notes[1])[:-1].reshape(12, 12, 40),reward],'movements','sel_act_'+str(self.game_played-1))
             #except:l=1
             self.last_notes = dict['actions'], eye_output, model_output[:-1].reshape(12, 12, 40), dict[
                 'policy_logits'], len(dict['actions']),dict['action_for_env']
 
 
         #self.game_step+=1
+        #text(2,1,12,'test')
+            str1=""
+            for e in dict['actions']:str1+="___"+str(e.numpy())
+            dict['action_for_env'].append(sidetext('{}'.format(str1)))
+            dict['action_for_env'].append(sidetext('reward,delta:{},{}'.format(reward,delta)))
+
+
+        if self.game_step==16 and self.id==1:
+            d=0
         return dict['action_for_env']
     def reset_environment(self,env):
         self.environment=env

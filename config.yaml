@@ -40,15 +40,24 @@ num_learner_threads: 2
 model_arch: FeatureExtractor
 nn_model_name: FeatureExtractor
 input_dim: [1,53,12,12]
+#model_params:
+#  channels : [1]
+#  input_image_dim : [12, 12]
+#  start_channel : 53
+#  convs : [3 ,3,3,3,2]
+#  pads : [0, 0,0,0,0]
+#  strides : [1,1, 1,1,1]
+#  pools : [2, 2,1,2,1] #receptive 6,
+#  fc1_p : [1,5761]
 model_params:
-  channels : [100,200,100,50]
+  channels : [1]
   input_image_dim : [12, 12]
   start_channel : 53
-  convs : [2 ,2,1,1,2]
+  convs : [11,3,4,3,2]
   pads : [0, 0,0,0,0]
   strides : [1,1, 1,1,1]
   pools : [2, 2,1,2,1] #receptive 6,
-  fc1_p : [null,5761]
+  fc1_p : [1,5761]
 n_blocks: 24
 hidden_dim: 128
 embedding_dim: 32

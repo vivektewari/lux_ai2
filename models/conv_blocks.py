@@ -32,10 +32,10 @@ class ConvBlock(nn.Module):
         x = input1
 
         x = self.conv(input1)  # F.relu_(self.conv(input1))
-        # x = F.relu_(self.bn2(self.conv2(x)))
-        if pool_type == 'max':
-            x = F.max_pool2d(x, kernel_size=pool_size)
-            return x
+        #x = self.bn2(self.conv2(x))
+        # if pool_type == 'max':
+        #     x = F.max_pool2(x, kernel_size=pool_size)
+        return x
 
 
 class FeatureExtractor(nn.Module):
@@ -111,8 +111,8 @@ class FeatureExtractor(nn.Module):
             if i < (len(self.conv_blocks) - 1):
                 x = self.activation_l(x)
                 #print(torch.std(x),torch.min(x),torch.max(x))
-                # if torch.std(x)>0.0001:#fix: bad fix as valueue wer becoming nan
-                #     x = (x - torch.mean(x)) / torch.std(x)
+                if torch.std(x)>0.0001:#fix: bad fix as valueue wer becoming nan
+                     x = (x - torch.mean(x)) / torch.std(x)
 
 
             if self.mode_train == 1:
@@ -135,18 +135,22 @@ class FeatureExtractor(nn.Module):
         if self.fc1_p[0] is not None:
             x = self.activation_l(x)
             x = self.activation_l(self.fc1(x))
+            if max(x.shape)>1:
+                 x = (x - torch.mean(x)) /torch.torch.std(x)
             if self.mode_train == 1:
                 x = self.dropout(x)
-
+            x=torch.abs(x)*0+1#todo remove
             x = self.fc2(x)
             # if max(x.shape)>1:
-            #     x = (x - torch.mean(x)) /torch.torch.std(x)
+            #      x = (x - torch.mean(x)) /torch.torch.std(x)
 
 
 
         #x=abs(self.activation_l(x))
         #x = self.activation_l(x)
-        return x.flatten()# F.tanh(x.flatten())
+        #print(torch.max(x),torch.min(x))
+        #print(x[-1])
+        return torch.clip(x,-15,15).flatten()# F.tanh(x.flatten())
 
 def count_parameters(model):
     table = PrettyTable(["Modules", "Parameters"])
