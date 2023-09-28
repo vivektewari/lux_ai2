@@ -118,13 +118,14 @@ class LoggingEnv(gym.Wrapper):
     def __init__(self, env: gym.Env):
         super(LoggingEnv, self).__init__(env)
         self.logs=None
-        self.track_dict={'delta':[],'value':[],'action_prob':[],'city_action_research':[],'unit_build':[],'bcity':[],'city_no_action':[],'unit_no_action':[],'move_action':[], 'unit_no_action_prob':[], 'city_no_action_prob':[],'blank_space_no_act_prob': [],'max_model_output':[]}
+        #log_add: for addition in steps step 1/3
+        self.track_dict={'delta':[],'value':[],'action_prob':[],'city_action_research':[],'unit_build':[],'bcity':[],'city_no_action':[],'unit_no_action':[],'move_action':[], 'unit_no_action_prob':[], 'city_no_action_prob':[],'blank_space_no_act_prob': [],'max_model_output':[],'rewards':[],'bs_loss':[],'entropy':[]}
 
         # self.delta=[]
         # self.value = []
         # self.action_prob = []
 
-        self.max_size=20
+        self.max_size=1
         self.vals_peak = {}
         self.reward_sums = [0., 0.]
         self.actions_distributions = {
@@ -142,6 +143,7 @@ class LoggingEnv(gym.Wrapper):
         else:self.visualizer=visualizer
         if logs is None:
             #self.visualizer.viz.
+            #log_add: step2/3
             self.logs = {
                 "step": [],
                 "city_tiles": [],
@@ -163,7 +165,10 @@ class LoggingEnv(gym.Wrapper):
                 'unit_no_action_prob':[],
                 'city_no_action_prob':[],
                 'blank_space_no_act_prob': [],
-                'max_model_output':[]
+                'max_model_output':[],
+                'bs_loss':[],
+                'entropy':[]
+
             }
         else :self.logs=logs
 
@@ -175,6 +180,10 @@ class LoggingEnv(gym.Wrapper):
     def info(self, info: Dict[str, np.ndarray], rewards: List[int]) -> Dict[str, np.ndarray]:
         if not self.done: return {}
         info = copy.copy(info)
+        self.rewards_copy=rewards
+        return info
+    def prepare_logs(self):
+        rewards=self.rewards_copy
         game_state = self.env.unwrapped.game_state
 
         if game_state.players[0].city_tile_count>game_state.players[1].city_tile_count:win=[1,0]
@@ -183,7 +192,7 @@ class LoggingEnv(gym.Wrapper):
         elif len(game_state.players[0].units) < len(game_state.players[1].units):win = [0, 1]
         else :win=[0,0]
 
-
+        #log_add: step3/3
         logs = {
             "step": [game_state.turn],
             "city_tiles": [p.city_tile_count for p in game_state.players],
@@ -191,9 +200,9 @@ class LoggingEnv(gym.Wrapper):
             "workers": [sum(u.is_worker() for u in p.units) for p in game_state.players],
             "carts": [sum(u.is_cart() for u in p.units) for p in game_state.players],
             "research_points": [p.research_points for p in game_state.players],
-            "rewards": [rewards[p.team] for p in game_state.players],
+            "rewards": [np.sum(self.track_dict['rewards'])],
             "game_win": win,
-            "value":[np.mean(self.track_dict['value']),np.max(np.absolute(self.track_dict['value']))],
+            "value":[self.track_dict['value'][0],np.max(np.absolute(self.track_dict['value']))],
             "delta":[np.mean(self.track_dict['delta']),np.max(np.absolute(self.track_dict['delta']))],
             "action_prob": [np.mean(self.track_dict['action_prob']), np.max(self.track_dict['action_prob'])],
             'city_action_research': [np.mean(self.track_dict['city_action_research'])],
@@ -206,6 +215,8 @@ class LoggingEnv(gym.Wrapper):
             'city_no_action_prob': [np.mean(self.track_dict['city_no_action_prob'])],
             'blank_space_no_act_prob': [np.mean(self.track_dict['blank_space_no_act_prob'])],
             'max_model_output':[np.mean(self.track_dict['max_model_output'])],
+            'bs_loss':self.track_dict['bs_loss'],
+            'entropy':self.track_dict['entropy'],
 
         }
 
@@ -240,7 +251,7 @@ class LoggingEnv(gym.Wrapper):
         # info.update({f"LOGGING_{key}": np.array(val, dtype=np.float32) for key, val in logs.items()})
         # # Add any additional info from the reward space
         # info.update(self.reward_space.get_info())
-        return info
+
 
 
 

@@ -1,9 +1,9 @@
 import torch
-
+import numpy as np
 from vivek_agent import agent_v2
 import pandas as pd
 class agent_v2(agent_v2):
-    def tracking(self, output, key,filename="tracker"):
+    def tracking(self, output, key,filename="tracker",end=0):
         """
         save the snapshot of different part of game for reassceing it later
         """
@@ -54,7 +54,7 @@ class agent_v2(agent_v2):
 
             self.writer.save()
         if key == 'act_tracking':
-            if self.game_step == 1: self.writer = pd.ExcelWriter(self.track_loc +filename+ '.xlsx')
+            if self.game_step == 1: self.writer1 = pd.ExcelWriter(self.track_loc +filename+ '.xlsx')
             if output[3]==0 :return None
             l, b,c = output[1].shape
             dump = pd.DataFrame(columns=[str(i)  for i in range(l)], index=[str(i)  for i in range(b)])
@@ -88,10 +88,10 @@ class agent_v2(agent_v2):
                 #         dump[i][j]=deck
                 dump1.index.name=str(track_act)
                 dump2.index.name = str(track_act)
-                dump1.to_excel(self.writer, sheet_name=str(self.game_step)+str("_")+str(output[3]),startrow=track_act_list.index(track_act)*(l+3),startcol=0)
-                dump2.to_excel(self.writer, sheet_name=str(self.game_step) + str("_") + str(output[3]),
+                dump1.to_excel(self.writer1, sheet_name=str(self.game_step)+str("_")+str(output[3]),startrow=track_act_list.index(track_act)*(l+3),startcol=0)
+                dump2.to_excel(self.writer1, sheet_name=str(self.game_step) + str("_") + str(output[3]),
                                startrow=track_act_list.index(track_act) * (l + 3), startcol=13)
-            self.writer.save()
+            self.writer1.save()
         if key == 'movements':
             if self.game_step == 1: self.writer = pd.ExcelWriter(self.track_loc +filename+ '.xlsx')
             l, b,c = output[1].shape
@@ -119,5 +119,28 @@ class agent_v2(agent_v2):
             # if self.game_step==16:
             #     g=0
             self.writer.save()
+        if key == 'state_value_reward':
+
+
+            dump = pd.DataFrame({'game_step':[self.game_step],'value':[float(output[0])],'rewards':np.cumsum(np.flip(output[1]))})
+
+
+            if self.game_step == 1:
+                self.writer = pd.ExcelWriter(self.track_loc +filename+ '.xlsx')
+                pd.DataFrame(columns=['game_step','value','reward']).to_excel(self.writer, sheet_name=str('value_rewards'),index=False)
+
+
+
+            # dump.to_csv(self.track_loc+str(self.game_step)+'_see.csv')
+
+            dump.to_excel(self.writer, sheet_name=str('value_rewards'),startrow=self.game_step,startcol=0,index=False,header=False)
+
+
+            self.writer.save()
+            if end==1:
+                saved=pd.read_excel(self.track_loc+filename+'.xlsx',sheet_name='value_rewards')
+                saved['post_rewards']=output[2] #np.flip(np.cumsum(np.flip(saved['reward'])))
+                saved.to_excel(self.writer, sheet_name=str('value_rewards'),index=False)
+                self.writer.save()
 
 

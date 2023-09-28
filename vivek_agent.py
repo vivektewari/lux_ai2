@@ -13,6 +13,7 @@ import torch
 import gym
 from typing import Any, Callable, Dict, NoReturn, Optional, Tuple, Union,List
 from from_isaiah.lux_gym.reward_spaces import RewardSpec
+np.random.seed(123456)
 class abstract_agent(ABC):
     def __init__(self,action_space=None,player=0,board_dim=(12,12),model_updater=None,environment=None,track_loc=None):
 
@@ -99,7 +100,8 @@ class abstract_agent(ABC):
                 if city.fuel<city.light_upkeep and is_nyt:
                     if city.team==self.id:constraint-=len(city.citytiles) # correcting contraintremoving all citues if they are going to die next turn
             for unit in player.units:
-                if not unit.can_act():no_move.add(unit.pos.astuple())
+                #todo remove or unit.team!=self.id:unit cant go to opposition player tile |remove this condition as opposition unit can move , added this to make simeple decion
+                if not unit.can_act() or unit.team!=self.id:no_move.add(unit.pos.astuple())
                 pos_to_unit_dict[unit.pos.astuple()] = unit
                 if unit.team==self.id:constraint-=1
 
@@ -120,7 +122,7 @@ class agent_v1(abstract_agent):
 
         dict = {}
         dict['baseline'] = torch.tensor(model_output[-1], requires_grad=True)
-        temp = model_output[:-1].reshape((12, 12, 40))  # .reating_grph()
+        temp = model_output[0].reshape((12, 12, 40))  # .reating_grph()
         # temp=temp.clone().detach().requires_grad_(True)
         dict['unit'], dict['cart'], dict['ct'] = torch.tensor(temp[:, :, :19], requires_grad=True), torch.tensor(
             temp[:, :, 19:36], requires_grad=True), torch.tensor(temp[:, :, 36:40], requires_grad=True)
@@ -129,12 +131,15 @@ class agent_v1(abstract_agent):
 
 
     def action_selection(self,game:Game,model_output_:dict)->Dict[str,torch.tensor]:# dict witk key:policy logits ->shape x,y,type,logit |, action->x,y,type,action
+        #todo : remove this as this only meant for testing
+        #fixed_actions=self.fixed_actions[self.game_step][:]
 
         masks,pos_to_city_tile_dict,pos_to_unit_dict=self.preprocess(game)
         choices=None
-        baseline=model_output_[-1]#torch.sigmoid(
 
-        model_output = model_output_[:-1].reshape((12, 12, 40))
+        baseline=model_output_[-1].flatten()#torch.sigmoid(
+
+        model_output = model_output_[0].reshape((12, 12, 40))
         #for tracking:
         model_output_1=torch.softmax(model_output[:,:,0:19].detach(),dim=2),torch.softmax(model_output[:,:,19:36].detach(),dim=2) \
                                     ,torch.softmax(model_output[:,:,36:40].detach(),dim=2)
@@ -143,7 +148,8 @@ class agent_v1(abstract_agent):
 
         selected_action=-1
         action=[]
-        logits=1
+        logits=1#torch.tensor(1.0)
+        entropy=0
         action_str=[]
 
 
@@ -153,6 +159,7 @@ class agent_v1(abstract_agent):
         cities=list(pos_to_city_tile_dict.keys())
         units=list(pos_to_unit_dict.keys())
         loop=0
+        for_learner=[]
         for key in cities+units:
             loop+=1
             if loop<=len(cities):
@@ -193,12 +200,27 @@ class agent_v1(abstract_agent):
                 remaining_prob=torch.exp(relevant_action_set[mask==1]/scalar).sum()
             choices=torch.tensor([i for i in range(len(relevant_action_set))])[mask==1]
 
+
+
             distribution=softmax(relevant_action_set[choices],dim=0)
+
+
+
             if self.use_learning and np.random.random()<-0.5/self.game_played:selected_action=np.random.choice(choices)#torch.argmax(relevant_action_set)#,p=np.array(distribution)
-            else:selected_action=np.random.choice(choices,p=np.array(distribution))
-            if self.game_played<0 and True: #assiting to build city and worker in inita games
+            elif self.repeater and self.game_played>1:
+                selected_action=self.fixed_actions[self.game_step][key, id]
+                #if len(fixed_actions)>0:selected_action=fixed_actions.pop(0)
+            elif self.game_played<500 and False: #todo :delete this |assiting to build city and worker in inita games
                 if ref==1 and 1 in choices:selected_action=1
                 if ref == 2 and 2 in choices: selected_action = 2
+            else:
+                selected_action=np.random.choice(choices,p=np.array(distribution))
+                if self.repeater: self.fixed_actions[self.game_step][key,id]=selected_action
+                #selected_action=choices[np.argmax(distribution)]#to uncoment before line
+            # adding this to allow learner to usy entropy loss
+
+
+            for_learner.append((key[0], key[1], ref, softmax(action_set, dim=0), choices, selected_action))
 
 
             #if selected_action==3 and ref==1:print(relevant_action_set[choices])
@@ -217,11 +239,20 @@ class agent_v1(abstract_agent):
                 action_str.append(act_str)
 
             #probs = torch.exp(action_set[selected_action]/scalar)/(remaining_prob)
-            probs = torch.softmax(action_set,dim=0 )[selected_action]
+            soft_maxed=torch.softmax(action_set,dim=0 )
+            probs = soft_maxed[selected_action]
+
+            for e in soft_maxed[choices]:
+                entropy+=e*torch.log(e)
+
+
+
             if torch.isnan(probs) or torch.isinf(probs):
                 check=2
-
-            logits*=probs
+            #adding extra condition to skip no action: if no action it is not updated in prob
+            #if (ref==1 and selected_action not in [1]) or (ref==2 and selected_action not in [2]):logits*=probs/probs#todo remove
+            #else :logits*=probs
+            logits *= probs
 
         self.record_value_for_log({'blank_space_no_act_prob':torch.nanmean(noaction_probs)})
 
@@ -229,7 +260,7 @@ class agent_v1(abstract_agent):
             logits=torch.tensor(1.0,dtype=torch.float32,requires_grad=True)
             action=[torch.tensor(-1)]
 
-        dict={'policy_logits':logits,'actions':torch.stack(action),'baseline':baseline,'action_for_env':action_str}
+        dict={'policy_logits':logits,'actions':torch.stack(action),'baseline':baseline,'action_for_env':action_str,'for_learner':for_learner}
         if len(dict['action_for_env'])>0:
             if dict['action_for_env'][0].find('bw')>=0:
                 d=0
@@ -257,8 +288,20 @@ class agent_v2(agent_v1):
         self.game_step=0
         self.brain=brain
         self.use_learning=use_learning
+
+        if isinstance(self.use_learning, int):
+            brain.learn_policy,brain.learn_value=bool(use_learning/10>=1),bool(use_learning/10)
+            self.use_learning=True
+        elif self.use_learning==False:brain.learn_policy,brain.learn_value=False,False
+        elif self.use_learning==True:brain.learn_policy,brain.learn_value=True,True
+        else:pass
+
+
         self.game_played=1
         self.track_loc=track_loc
+        self.track_codes=['state_value_reward' ]#'act_tracking',
+        self.repeater= False
+        self.fixed_actions=[{} for i in range(361)]
 
 
         pass
@@ -295,24 +338,27 @@ class agent_v2(agent_v1):
         self.extract_update_game(obs)
 
         eye_output,reward,done=self.see()
-        if self.track_loc is not None:self.tracking(eye_output,key='see1')
+        #if self.track_loc is not None:self.tracking(eye_output,key='see1')
         self.stopwatch.stop().start("model running")
         model_output=self.brain.model(eye_output)
-        self.stopwatch.stop().start("model output processing")
+        self.stopwatch.stop().start("action selection")
         dict = self.action_selection(self.environment.game_state, model_output)
-
+        self.stopwatch.stop()
 
         if self.game_step == 0:
-            self.brain.reset()
-            self.brain.note(v_t=dict['baseline'],action_prob=dict['policy_logits'])
-            self.last_notes=dict['actions'],eye_output,model_output[:-1].reshape(12,12,40),dict['policy_logits'],len(dict['actions']),dict['action_for_env']
+            #self.brain.reset()
+            self.brain.note(v_t=dict['baseline'],action_prob=dict['policy_logits'],for_learner=dict['for_learner'],model_input=eye_output)
+            self.last_notes=dict['actions'],eye_output,model_output[0].reshape(12,12,40),dict['policy_logits'],len(dict['actions']),dict['action_for_env']
         elif self.environment.done:
             value = self.brain.v_t.detach()
             delta = dict['baseline'].detach() + reward - value
-
+            if self.use_learning: final_out= self.brain.learn(reward=reward)
+            #if self.id==0 :print(bs_loss)
+            if 'state_value_reward' in self.track_codes and self.track_loc is not None: self.tracking([value,reward, final_out['target_values']], 'state_value_reward',
+                                                          'value_reward_' + str(self.game_played - 1),end=1)
             self.record_value_for_log(
-                {'value': self.brain.v_t.detach(), 'delta': delta, 'action_prob': self.brain.action_prob.detach() })
-            if self.use_learning:self.brain.learn(reward=reward, v_t_plus_one=torch.tensor(0.0))
+                {'value': self.brain.v_t.detach(), 'delta': float(delta), 'action_prob': self.brain.action_prob.detach(),'rewards':reward,'bs_loss':float(final_out['bs_loss']),'entropy':final_out['entropy']})
+
             self.game_played+=1
         else:
             value = self.brain.v_t.detach()
@@ -320,22 +366,28 @@ class agent_v2(agent_v1):
             delta =self.brain.discounting*dict['baseline'].detach()+reward-value
             #recording value for logs
             #print(self.brain.action_prob.detach() )
-            self.record_value_for_log({'value':self.brain.v_t.detach(),'delta':delta,'action_prob':self.brain.action_prob.detach() \
-                                       ,'max_model_output':torch.max(torch.abs_(model_output.detach()))})
+            self.stopwatch.stop().start("learning")
+            if self.use_learning: bs_loss = self.brain.learn(reward=reward, v_t_plus_one=dict['baseline'].detach())
+            self.stopwatch.stop()
+            self.record_value_for_log({'value':float(self.brain.v_t.detach()),'delta':float(delta),'action_prob':self.brain.action_prob.detach() \
+                                       ,'max_model_output':torch.max(torch.abs_(model_output[0].detach())),'rewards':reward })
 
-            if self.game_step in [190] and self.id == 1:
-                h = 0
-            if self.use_learning:self.brain.learn(reward=reward,v_t_plus_one=dict['baseline'].detach())
+            # if self.game_step in [190] and self.id == 1:
+            #     h = 0
+            self.stopwatch.stop().start("action selection2")
             model_output = self.brain.model(eye_output)
             dict = self.action_selection(self.environment.game_state, model_output)
-            self.brain.note(v_t=dict['baseline'],action_prob=dict['policy_logits'])
+            self.stopwatch.stop()
+            self.stopwatch.stop().start("notes")
+            self.brain.note(v_t=dict['baseline'],action_prob=dict['policy_logits'],for_learner=dict['for_learner'],model_input=eye_output)
 
-            if self.track_loc is not None:self.tracking([[i for i in range(19)]+[36,37,38,39],self.last_notes[2], \
-                    self.brain.model(self.last_notes[1])[:-1].reshape(12, 12, 40),reward],'act_tracking','sel_act_'+str(self.game_played-1))
-            if self.track_loc is not None:self.tracking([[0,2],self.last_notes[2], \
-                    self.brain.model(self.last_notes[1])[:-1].reshape(12, 12, 40),reward],'movements','sel_act_'+str(self.game_played-1))
+            if 'act_tracking' in self.track_codes and  self.track_loc is not None:self.tracking([[i for i in range(19)]+[36,37,38,39],self.last_notes[2], \
+                    self.brain.model(self.last_notes[1])[0].reshape(12, 12, 40),reward],'act_tracking','sel_act_'+str(self.game_played-1))
+            if 'movements' in self.track_codes and  self.track_loc is not None:self.tracking([[0,2],self.last_notes[2], \
+                     self.brain.model(self.last_notes[1])[:-1].reshape(12, 12, 40),reward],'movements','sel_act_'+str(self.game_played-1))
             #except:l=1
-            self.last_notes = dict['actions'], eye_output, model_output[:-1].reshape(12, 12, 40), dict[
+            if 'state_value_reward' in self.track_codes and self.track_loc is not None: self.tracking([value,reward],'state_value_reward','value_reward_'+str(self.game_played-1))
+            self.last_notes = dict['actions'], eye_output, model_output[0].reshape(12, 12, 40), dict[
                 'policy_logits'], len(dict['actions']),dict['action_for_env']
 
 
@@ -346,9 +398,8 @@ class agent_v2(agent_v1):
             dict['action_for_env'].append(sidetext('{}'.format(str1)))
             dict['action_for_env'].append(sidetext('reward,delta:{},{}'.format(reward,delta)))
 
-
-        if self.game_step==16 and self.id==1:
-            d=0
+        self.stopwatch.stop()
+        #print(self.stopwatch)
         return dict['action_for_env']
     def reset_environment(self,env):
         self.environment=env
