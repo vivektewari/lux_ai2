@@ -250,7 +250,7 @@ class FixedShapeContinuousObsV2(FixedShapeObs):
     ) -> gym.spaces.Dict:
         x = board_dims[0]
         y = board_dims[1]
-        return gym.spaces.Dict({
+        t= gym.spaces.Dict({
             # Player specific observations
             # none, worker
             "worker": gym.spaces.MultiBinary((1, P, x, y)),
@@ -315,6 +315,7 @@ class FixedShapeContinuousObsV2(FixedShapeObs):
             # 12, 16, 24, or 32
             "board_size": gym.spaces.MultiDiscrete(np.zeros((1, 1)) + len(MAP_SIZES)),
         })
+        return t
 
     def wrap_env(self, env) -> gym.Wrapper:
         return _FixedShapeContinuousObsWrapperV2(env)
@@ -341,6 +342,7 @@ class _FixedShapeContinuousObsWrapperV2(gym.Wrapper):
         return self.observation(observation), reward, done, info
 
     def observation(self, observation: Game) -> Dict[str, np.ndarray]:
+
         w_capacity = GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["WORKER"]
         ca_capacity = GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["CART"]
         w_cooldown = GAME_CONSTANTS["PARAMETERS"]["UNIT_ACTION_COOLDOWN"]["WORKER"] * 2. - 1.
@@ -359,9 +361,12 @@ class _FixedShapeContinuousObsWrapperV2(gym.Wrapper):
             p_id = player.team
             for unit in player.units:
                 x, y = unit.pos.x, unit.pos.y
+
                 if unit.is_worker():
+
                     obs["worker"][0, p_id, x, y] = 1
-                    obs["worker_COUNT"][0, p_id, x, y] += 1
+                    # todo think and remove later:aded work count/20 so that value remain <1
+                    obs["worker_COUNT"][0, p_id, x, y] += 1/50
                     obs["worker_cooldown"][0, p_id, x, y] = unit.cooldown / w_cooldown
                     obs["worker_cargo_full"][0, p_id, x, y] = unit.get_cargo_space_left() == 0
 
@@ -405,19 +410,28 @@ class _FixedShapeContinuousObsWrapperV2(gym.Wrapper):
         obs["dist_from_center_x"][:] = self.get_dist_from_center_x(observation.map_width, observation.map_height)
         obs["dist_from_center_y"][:] = self.get_dist_from_center_y(observation.map_width, observation.map_height)
         obs["night"][0, 0] = observation.is_night
-        obs["day_night_cycle"][0, 0] = observation.turn % DN_CYCLE_LEN
+        #todo think and remove later:added /DN_CYCLE_LEN and DN_CYCLE_LEN*10 so that value remain <1
+        obs["day_night_cycle"][0, 0] = (observation.turn % DN_CYCLE_LEN)/DN_CYCLE_LEN
         obs["phase"][0, 0] = min(
-            observation.turn // DN_CYCLE_LEN,
-            GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"] / DN_CYCLE_LEN - 1
+            observation.turn // (DN_CYCLE_LEN*10),
+            GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"] / (DN_CYCLE_LEN*10) - 1
         )
         obs["turn"][0, 0] = observation.turn / GAME_CONSTANTS["PARAMETERS"]["MAX_DAYS"]
         obs["board_size"][0, 0] = MAP_SIZES.index((observation.map_width, observation.map_height))
         my_list = []
         for key in obs.keys():
+            #print(key,obs[key].shape)
+            # if key=='research_points':
+            #     if obs[key][0][0]>0:
+            #         u=0
             if len(obs[key].shape) == 4:
                 my_list.append(obs[key])
             else:
                 my_list.append(np.resize(obs[key], obs[key].shape + (12, 12)))
+        if np.max(np.concatenate(my_list, axis=1))>5:
+            print('found a large value')
+            for e in obs.keys():
+                print(e, np.max(obs[e]))
         return np.concatenate(my_list, axis=1)
         #return obs
 
@@ -784,6 +798,7 @@ class _SequenceEmbeddingObsWrapper(gym.Wrapper):
         return self.observation(observation), reward, done, info
 
     def observation(self, observation: Game) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+
         max_capacity = max(GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["WORKER"],
                            GAME_CONSTANTS["PARAMETERS"]["RESOURCE_CAPACITY"]["CART"])
         max_cooldown = max(GAME_CONSTANTS["PARAMETERS"]["UNIT_ACTION_COOLDOWN"]["WORKER"] * 2. - 1.,

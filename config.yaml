@@ -16,10 +16,11 @@ entity: vivektewari2000
 group: na
 
 ## ENV params
+brain : 'Brain_v4'
 act_space: BasicActionSpace
 obs_space: FixedShapeContinuousObsV2
 obs_space_kwargs: {}
-reward_space: vivek_mix_reward #GetNResearchPoints #CityTileReward #GameResultReward #
+reward_space: test_rewards  #vivek_mix_reward #GetNResearchPoints #CityTileReward #GameResultReward #
 reward_space_kwargs: {}
 #for#internal calculation |not used anywhere
 unit_action_count: 19 #1|0 is no action +4|moves +1|pilage+1|build_city+ 3*4|full transfer
@@ -37,18 +38,74 @@ discounting: 0.999
 num_buffers: None
 num_learner_threads: 2
 ## MODEL params
-model_arch: FeatureExtractor
-nn_model_name: FeatureExtractor
+model_arch: fc_model
+nn_model1_name: model_extension3
+nn_model2_name: model_extension3
+nn_model3_name: fc_model #FeatureExtractor_baseline
 input_dim: [1,53,12,12]
-model_params:
-  channels : [100,200,100,50]
+#model_params:
+#  channels : [1]
+#  input_image_dim : [12, 12]
+#  start_channel : 53
+#  convs : [3 ,3,3,3,2]
+#  pads : [0, 0,0,0,0]
+#  strides : [1,1, 1,1,1]
+#  pools : [2, 2,1,2,1] #receptive 6,
+#  fc1_p : [1,5761]
+model_params3:
+  channels : [100,50,50,25] #[100,100,50,50,50] [100,50,20]
   input_image_dim : [12, 12]
   start_channel : 53
-  convs : [2 ,2,1,1,2]
+  convs : [2,2,2,2 ,2,3,2]
   pads : [0, 0,0,0,0]
   strides : [1,1, 1,1,1]
   pools : [2, 2,1,2,1] #receptive 6,
-  fc1_p : [null,5761]
+  fc1_p : [null,null]
+model_params1:
+  channels : [10,10]
+  input_image_dim : [8, 8]
+  start_channel : 25 #20
+  convs : [3,3]
+  pads : [0, 0,0,0,0]
+  strides : [1,1, 1,1,1]
+  pools : [2, 2,1,2,1] #receptive 6,
+  fc1_p : [100,1]
+model_params2:
+  channels : [30,30,30]
+  input_image_dim : [8, 8]
+  start_channel : 25 #20
+  convs : [3,3,2]
+  pads : [0, 0,0,0,0]
+  strides : [1,1, 1,1,1]
+  pools : [2, 2,1,2,1] #receptive 6,
+  fc1_p : [10,5760]
+model_paramsrn1:
+  blocks: [4,4]
+  channels : [128,128,128]
+  input_image_dim : [12, 12]
+  start_channel : 53
+  convs : [3,3,3 ,3,3]
+  pads : [1, 1,1,1,1]
+  strides : [1,1, 1,1,1]
+  pools : [3, 3,3,3,3] #receptive 6,
+  fc1_p : [128,1]
+model_paramsrn2:
+  blocks: [4,4]
+  channels : [128,128,128]
+  input_image_dim : [12, 12]
+  start_channel : 53
+  convs : [3,3,3,3,3,3]
+  pads : [1, 1,1,1,1]
+  strides : [1,1, 1,1,1]
+  pools : [3, 3,3,3,3] #receptive 6,
+  fc1_p : [128,5760]
+model_paramsfc1:
+  input_nodes: 288
+  output_nodes: 1
+model_paramsfc2:
+  input_nodes: 288
+  output_nodes: 5760
+  
 n_blocks: 24
 hidden_dim: 128
 embedding_dim: 32
@@ -102,8 +159,12 @@ debug: False
 #monobeast paprams
 mode        : 'train'
 xpid: None
-savedir: /home/pooja/PycharmProjects/lux_ai/outputs/monobeast_output/
-renderdir: /home/pooja/PycharmProjects/lux_ai/outputs/render/
+rootdir: /home/pooja/PycharmProjects/lux_ai/outputs/tracking/ct_build/output_trials/
+weightdir: /weight/
+renderdir: /render/
+trackingdir: /tracking/
+pretraindDir: null #/home/pooja/PycharmProjects/lux_ai/outputs/tracking/ct_build/output_trials//weight// #saved// #Null #
+visdom_identifier: 'trial2' # 'c101_wd_0.01_ent_0.1'
 
 # Continue from previous run
 #load_dir: /Windows/Users/isaia/Documents/GitHub/Kaggle/Lux_AI_2021/outputs/09-07/01-44-10/

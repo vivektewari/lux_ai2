@@ -42,8 +42,8 @@ if config.nn_model3_name is not None:
     model_.append(conv_blocks.__dict__[config.nn_model3_name])
 brain_class = brain.__dict__[config.brain]
 #conv_blocks.count_parameters(model1)
-brain1=brain_class( discounting=0,lambda_w=0.2,lambda_t=0.90,alpha_w=0.005,alpha_t=0.005,model=None)
-brain2=brain_class( discounting=0,lambda_w=0.2,lambda_t=0.90,alpha_w=0.005,alpha_t=0.005,model=None)
+brain1=brain_class( discounting=0,lambda_w=0.2,lambda_t=0.90,alpha_w=0.05,alpha_t=0.005,model=None)
+brain2=brain_class( discounting=0,lambda_w=0.2,lambda_t=0.90,alpha_w=0.05,alpha_t=0.005,model=None)
 
 config.weightdir=config.rootdir+config.weightdir
 track_loc_dir=config.rootdir+config.trackingdir

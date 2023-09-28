@@ -20,7 +20,20 @@ class BCELoss(nn.Module):
         pred = torch.clamp(pred, min=EPSILON_FP16, max=1.0-EPSILON_FP16)
 
         return self.func(pred, actual)
-
+class custom_mape_loss(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.func = nn.MSELoss()
+        self.sigmoid = nn.Sigmoid()
+    def forward(self, pred, actual):
+        # bs, s, o = pred.shape
+        # pred = pred.reshape(bs*s, o)
+        #pred = self.sigmoid(pred)
+        pred = torch.clamp(pred, min=EPSILON_FP16, max=1.0-EPSILON_FP16)
+        #actual=torch.where(actual<0.000001,actual+torch.tensor(1.00,requires_grad=True),actual)
+        actual+=actual+0.00001 # making it non zero
+        loss = torch.mean(torch.clamp(self.func(pred,actual)/actual,-1,1))*100 #,min=-10,max=10)
+        return loss
 class LocalizatioLoss(nn.Module):
     def __init__(self):
         super().__init__()

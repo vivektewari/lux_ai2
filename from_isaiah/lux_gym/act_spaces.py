@@ -299,7 +299,7 @@ class BasicActionSpace(BaseActSpace):
             if ct.can_act() :
                 if constraint>0 :
                     masks[ACTION_MEANINGS_TO_IDX[unit_type]["BUILD_WORKER"]]=1
-                    masks[ACTION_MEANINGS_TO_IDX[unit_type]["BUILD_CART"]] = 0
+                    masks[ACTION_MEANINGS_TO_IDX[unit_type]["BUILD_CART"]] = 0#todo remove this
                 if player.research_points<MAX_RESEARCH:masks[ACTION_MEANINGS_TO_IDX[unit_type]["RESEARCH"]] =1
             masks[0] = 1 #no op is valida action
             if ct.cityid not in output_dict.keys():
