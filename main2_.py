@@ -41,7 +41,8 @@ model_.append(combined_models.__dict__[config.nn_model2_name])
 if config.nn_model3_name is not None:
     model_.append(conv_blocks.__dict__[config.nn_model3_name])
 brain_class = brain.__dict__[config.brain]
-#conv_blocks.count_parameters(model1)
+#conv_blocks.count_parameters(model
+# 1)
 brain1=brain_class( discounting=0,lambda_w=0.2,lambda_t=0.90,alpha_w=0.05,alpha_t=0.005,model=None)
 brain2=brain_class( discounting=0,lambda_w=0.2,lambda_t=0.90,alpha_w=0.05,alpha_t=0.005,model=None)
 

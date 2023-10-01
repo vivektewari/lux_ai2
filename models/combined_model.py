@@ -1,6 +1,6 @@
 import torch
 
-from codes.models.baseline_models import *
+from baseline_models import *
 
 
 class model_extension3(fc_model):
