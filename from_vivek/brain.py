@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 import torch,copy
 import torch.nn as nn
 import numpy as np
-from codes.models.losses import custom_mape_loss
-from codes.from_vivek.brain_aux import *
-from codes.utils.gradient_metric import grad_information
+from models.losses import custom_mape_loss
+from from_vivek.brain_aux import *
+from utils.gradient_metric import grad_information
 class Brain(ABC):
     @abstractmethod
     def learn(self,rewards,v_t,v_t_plus_one)->None:
